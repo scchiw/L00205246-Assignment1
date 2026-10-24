@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  task1-web.yaml - Initial baseline template by Seang Chiw (L00205246).
+
+Parameters:
+  StudentName:
+    Type: String
+    Default: "Seang Chiw"
+    Description: Enter your full name to display on the website header.
+
+Resources:
+  WebsiteS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "l00205246-static-web-${AWS::AccountId}"
+      WebsiteConfiguration:
+        IndexDocument: index.html
+
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP traffic on port 80
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  PublicWebServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      ImageId: ami-08c46876c64a927b8
+      SecurityGroupIds:
+        - !Ref WebServerSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          dnf update -y
+          dnf install -y httpd
+          systemctl start httpd
+          systemctl enable httpd
+          cat <<EOF > /var/www/html/index.html
+          <html><body><h3>L00205246 - ${StudentName}</h3></body></html>
+          EOF
+      Tags:
+        - Key: Name
+          Value: L00205246-Task1-Web-Server
+
+Outputs:
+  WebsiteURL:
+    Description: Public URL endpoint of the EC2 web server
+    Value: !Sub "http://${PublicWebServer.PublicDnsName}"
