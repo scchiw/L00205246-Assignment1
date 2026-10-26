@@ -50,7 +50,7 @@ Resources:
           - Effect: Allow
             Principal:
               Service:
-                - "://amazonaws.com"
+                - "ec2.amazonaws.com"
             Action:
               - "sts:AssumeRole"
       Policies:
@@ -129,7 +129,7 @@ Resources:
           <head><title>L00205246 CloudFormation Lab</title></head>
           <body style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px;">
             <h3>L00205246 - ${StudentName}</h3>
-            <p>Static content stored in S3 Bucket (${WebsiteS3Bucket}) and hosted via EC2.</p>
+            <p>This my my page for assignment stored in S3 Bucket (${WebsiteS3Bucket}) and hosted via EC2.</p>
           </body>
           </html>
           EOF
