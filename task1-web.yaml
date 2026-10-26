@@ -1,6 +1,15 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
-  task1-web.yaml - Initial baseline template by Seang Chiw (L00205246).
+  task1-web.yaml - Task 1 CloudFormation template by Seang Chiw (L00205246).
+  Deploys an S3 bucket, stores index.html inside S3, and hosts the website via a t3.micro EC2 server.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Student Credentials"
+        Parameters:
+          - StudentName
 
 Parameters:
   StudentName:
@@ -9,45 +18,139 @@ Parameters:
     Description: Enter your full name to display on the website header.
 
 Resources:
+  # =========================================================================
+  # 1. S3 BUCKET FOR STATIC WEBSITE CONTENT
+  # =========================================================================
   WebsiteS3Bucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub "l00205246-static-web-${AWS::AccountId}"
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
       WebsiteConfiguration:
         IndexDocument: index.html
+      Tags:
+        - Key: Name
+          Value: L00205246-Task1-Web-Bucket
+        - Key: Owner
+          Value: "Seang Chiw"
+        - Key: CostCenter
+          Value: ATUDevOps
 
+  # =========================================================================
+  # 2. IAM ROLE & INSTANCE PROFILE (Allows EC2 to Copy index.html to/from S3)
+  # =========================================================================
+  WebServerS3Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "://amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: L00205246-Task1-Web-S3-Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt WebsiteS3Bucket.Arn
+                  - !Sub "${WebsiteS3Bucket.Arn}/*"
+      Tags:
+        - Key: Name
+          Value: L00205246-Task1-Web-Role
+        - Key: CostCenter
+          Value: ATUDevOps
+
+  WebServerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref WebServerS3Role
+
+  # =========================================================================
+  # 3. SECURITY GROUP FIREWALL RULES
+  # =========================================================================
   WebServerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow HTTP traffic on port 80
+      GroupDescription: Allow HTTP port 80 and restricted internal SSH port 22 for task1-web
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
+          Description: "Allow public HTTP web traffic for L00205246"
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 10.46.0.0/16
+          Description: "Restricted internal SSH troubleshooting for ATU lab"
+      Tags:
+        - Key: Name
+          Value: L00205246-Task1-Web-SG
+        - Key: CostCenter
+          Value: ATUDevOps
 
+  # =========================================================================
+  # 4. PUBLIC EC2 WEB SERVER
+  # =========================================================================
   PublicWebServer:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t3.micro
       ImageId: ami-08c46876c64a927b8
+      IamInstanceProfile: !Ref WebServerInstanceProfile
       SecurityGroupIds:
         - !Ref WebServerSecurityGroup
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
+          # Update packages and install Apache web server
           dnf update -y
           dnf install -y httpd
           systemctl start httpd
           systemctl enable httpd
-          cat <<EOF > /var/www/html/index.html
-          <html><body><h3>L00205246 - ${StudentName}</h3></body></html>
+          
+          # 1. Create the index.html file with L-number and Name
+          cat <<EOF > /tmp/index.html
+          <!DOCTYPE html>
+          <html>
+          <head><title>L00205246 CloudFormation Lab</title></head>
+          <body style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px;">
+            <h3>L00205246 - ${StudentName}</h3>
+            <p>Static content stored in S3 Bucket (${WebsiteS3Bucket}) and hosted via EC2.</p>
+          </body>
+          </html>
           EOF
+
+          # 2. Store index.html inside the S3 Bucket
+          aws s3 cp /tmp/index.html s3://${WebsiteS3Bucket}/index.html
+
+          # 3. Copy index.html from S3 into the Apache web directory to host it
+          aws s3 cp s3://${WebsiteS3Bucket}/index.html /var/www/html/index.html
       Tags:
         - Key: Name
           Value: L00205246-Task1-Web-Server
+        - Key: Owner
+          Value: "Seang Chiw"
+        - Key: CostCenter
+          Value: ATUDevOps
 
 Outputs:
   WebsiteURL:
     Description: Public URL endpoint of the EC2 web server
     Value: !Sub "http://${PublicWebServer.PublicDnsName}"
+  S3BucketDomain:
+    Description: Regional domain name of the S3 bucket
+    Value: !GetAtt WebsiteS3Bucket.DomainName
