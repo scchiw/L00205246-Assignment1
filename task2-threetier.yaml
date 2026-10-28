@@ -1,0 +1,155 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  task2-threetier.yaml - Task 2 Three-Tier Network Architecture for Seang Chiw (L00205246).
+  Creates an isolated VPC (10.46.0.0/16) with Public Web, Private App, and Isolated DB Subnets.
+
+Resources:
+  # =========================================================================
+  # 1. VPC & INTERNET GATEWAY
+  # =========================================================================
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.46.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: L00205246-Task2-ThreeTier-VPC
+        - Key: Owner
+          Value: "Seang Chiw"
+        - Key: CostCenter
+          Value: ATUDevOps
+        - Key: Project
+          Value: L00205246-Assignment1
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: L00205246-Task2-IGW
+        - Key: CostCenter
+          Value: ATUDevOps
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # =========================================================================
+  # 2. TIER 1: PUBLIC WEB SUBNET (Internet Facing)
+  # =========================================================================
+  PublicWebSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: us-east-1a
+      CidrBlock: 10.46.10.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: L00205246-Tier1-Web-Public
+        - Key: NetworkTier
+          Value: Tier1-Public-Web
+        - Key: CostCenter
+          Value: ATUDevOps
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: L00205246-Public-Routes
+        - Key: CostCenter
+          Value: ATUDevOps
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicWebSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  # =========================================================================
+  # 3. TIER 2: PRIVATE APPLICATION SUBNET (Isolated Processing)
+  # =========================================================================
+  PrivateAppSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: us-east-1a
+      CidrBlock: 10.46.20.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: L00205246-Tier2-App-Private
+        - Key: NetworkTier
+          Value: Tier2-Private-App
+        - Key: CostCenter
+          Value: ATUDevOps
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: L00205246-Private-Routes
+        - Key: CostCenter
+          Value: ATUDevOps
+
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateAppSubnet
+      RouteTableId: !Ref PrivateRouteTable
+
+  # =========================================================================
+  # 4. TIER 3: ISOLATED DATABASE SUBNET (Data Layer Protection)
+  # =========================================================================
+  IsolatedDBSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: us-east-1a
+      CidrBlock: 10.46.30.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: L00205246-Tier3-DB-Isolated
+        - Key: NetworkTier
+          Value: Tier3-Isolated-Database
+        - Key: DataClassification
+          Value: Restricted
+        - Key: CostCenter
+          Value: ATUDevOps
+
+  IsolatedSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref IsolatedDBSubnet
+      RouteTableId: !Ref PrivateRouteTable
+
+Outputs:
+  VPCId:
+    Description: Created Virtual Private Cloud ID
+    Value: !Ref VPC
+  WebSubnetId:
+    Description: Public Subnet ID for Web Tier
+    Value: !Ref PublicWebSubnet
+  AppSubnetId:
+    Description: Private Subnet ID for Application Tier
+    Value: !Ref PrivateAppSubnet
+  DBSubnetId:
+    Description: Isolated Subnet ID for Database Tier
+    Value: !Ref IsolatedDBSubnet
