@@ -1,7 +1,12 @@
 CloudFormation Lab Write-Up - Assignment 1
+
 Student Name: Seang  Chiw
+
 Student ID: L00205246
+
 GitHub Repo: https://github.com/scchiw/L00205246-Assignment1
+
+
 
 
 1. Introduction and Adopted Approach
